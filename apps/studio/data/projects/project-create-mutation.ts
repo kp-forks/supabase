@@ -11,6 +11,7 @@ import { projectKeys } from './keys'
 const WHITELIST_ERRORS = [
   'The following organization members have reached their maximum limits for the number of active free projects',
   'db_pass must be longer than or equal to 4 characters',
+  'There are overdue invoices in the organization(s)',
 ]
 
 export type DbInstanceSize = components['schemas']['DesiredInstanceSize']
@@ -27,6 +28,7 @@ export type ProjectCreateVariables = {
   customSupabaseRequest?: object
   dbInstanceSize?: DbInstanceSize
   dataApiExposedSchemas?: string[]
+  dataApiUseApiSchema?: boolean
 }
 
 export async function createProject({
@@ -40,6 +42,7 @@ export async function createProject({
   customSupabaseRequest,
   dbInstanceSize,
   dataApiExposedSchemas,
+  dataApiUseApiSchema,
 }: ProjectCreateVariables) {
   const body: components['schemas']['CreateProjectBody'] = {
     cloud_provider: cloudProvider,
@@ -54,6 +57,7 @@ export async function createProject({
     }),
     desired_instance_size: dbInstanceSize,
     data_api_exposed_schemas: dataApiExposedSchemas,
+    data_api_use_api_schema: dataApiUseApiSchema,
   }
 
   const { data, error } = await post(`/platform/projects`, {
