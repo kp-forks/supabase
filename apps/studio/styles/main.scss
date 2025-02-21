@@ -13,6 +13,8 @@
   --chart-3: 197 37% 24%;
   --chart-4: 43 74% 66%;
   --chart-5: 27 87% 67%;
+  --chart-warning: hsl(var(--warning-default));
+  --chart-destructive: hsl(var(--destructive-default));
 }
 
 .dark {
@@ -21,6 +23,8 @@
   --chart-3: 30 80% 55%;
   --chart-4: 280 65% 60%;
   --chart-5: 340 75% 55%;
+  --chart-warning: hsl(var(--warning-default));
+  --chart-destructive: hsl(var(--destructive-default));
 }
 
 @layer utilities {
@@ -44,9 +48,7 @@ body,
 .main {
   @apply bg-studio relative;
   @apply text-foreground;
-  height: 100%;
-  padding: 0;
-  margin: 0;
+  @apply overflow-x-clip;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
 }
@@ -275,11 +277,11 @@ div[data-radix-portal]:not(.portal--toast) {
 }
 
 .react-grid-item > .react-resizable-handle::after {
-  content: "";
+  content: '';
   position: absolute;
   right: 3px !important;
   bottom: 3px !important;
   width: 6px !important;
   height: 6px !important;
-  @apply dark:border-r-2 dark:border-b-2 dark:border-overlay #{!important};
+  @apply border-strong dark:border-r-2 dark:border-b-2 dark:border-overlay #{!important};
 }
