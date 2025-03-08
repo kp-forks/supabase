@@ -16,7 +16,7 @@ import { CronJob, useCronJobsQuery } from 'data/database-cron-jobs/database-cron
 import { useDatabaseExtensionsQuery } from 'data/database-extensions/database-extensions-query'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
 import { useCheckPermissions } from 'hooks/misc/useCheckPermissions'
-import { TelemetryActions } from 'lib/constants/telemetry'
+import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
 import {
   Button,
   Form_Shadcn_,
@@ -199,6 +199,7 @@ export const CreateCronJobSheet = ({
   onClose,
 }: CreateCronJobSheetProps) => {
   const { project } = useProjectContext()
+  const org = useSelectedOrganization()
   const isEditing = !!selectedCronJob?.jobname
 
   const [showEnableExtensionModal, setShowEnableExtensionModal] = useState(false)
@@ -331,18 +332,26 @@ export const CreateCronJobSheet = ({
 
           if (isEditing) {
             sendEvent({
-              action: TelemetryActions.CRON_JOB_UPDATED,
+              action: 'cron_job_updated',
               properties: {
                 type: values.type,
                 schedule: schedule,
               },
+              groups: {
+                project: project?.ref ?? 'Unknown',
+                organization: org?.slug ?? 'Unknown',
+              },
             })
           } else {
             sendEvent({
-              action: TelemetryActions.CRON_JOB_CREATED,
+              action: 'cron_job_created',
               properties: {
                 type: values.type,
                 schedule: schedule,
+              },
+              groups: {
+                project: project?.ref ?? 'Unknown',
+                organization: org?.slug ?? 'Unknown',
               },
             })
           }

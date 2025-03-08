@@ -5,11 +5,11 @@ import { useParams } from 'common'
 import { DiffType } from 'components/interfaces/SQLEditor/SQLEditor.types'
 import useNewQuery from 'components/interfaces/SQLEditor/hooks'
 import { useSendEventMutation } from 'data/telemetry/send-event-mutation'
-import { TelemetryActions } from 'lib/constants/telemetry'
 import Link from 'next/link'
 import { ComponentProps } from 'react'
 import { useSqlEditorV2StateSnapshot } from 'state/sql-editor-v2'
 import {
+  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -17,25 +17,38 @@ import {
   TooltipContent,
 } from 'ui'
 import { ButtonTooltip } from '../ButtonTooltip'
+import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
+import { useAppStateSnapshot } from 'state/app-state'
+import { useIsInlineEditorEnabled } from 'components/interfaces/App/FeaturePreview/FeaturePreviewContext'
 
 interface EditQueryButtonProps {
   id?: string
   title: string
   sql?: string
+  className?: string
+  type?: 'default' | 'text'
 }
 
-export const EditQueryButton = ({ id, sql, title }: EditQueryButtonProps) => {
+export const EditQueryButton = ({
+  id,
+  sql,
+  title,
+  className,
+  type = 'text',
+}: EditQueryButtonProps) => {
   const router = useRouter()
   const { ref } = useParams()
   const { newQuery } = useNewQuery()
   const sqlEditorSnap = useSqlEditorV2StateSnapshot()
-
+  const { setEditorPanel } = useAppStateSnapshot()
   const isInSQLEditor = router.pathname.includes('/sql')
   const isInNewSnippet = router.pathname.endsWith('/sql')
+  const isInlineEditorEnabled = useIsInlineEditorEnabled()
   const tooltip: { content: ComponentProps<typeof TooltipContent> & { text: string } } = {
     content: { side: 'bottom', text: 'Edit in SQL Editor' },
   }
 
+  const org = useSelectedOrganization()
   const { mutate: sendEvent } = useSendEventMutation()
 
   const handleEditInSQLEditor = () => {
@@ -52,9 +65,9 @@ export const EditQueryButton = ({ id, sql, title }: EditQueryButtonProps) => {
     return (
       <ButtonTooltip
         asChild
-        type="text"
+        type={type}
         size="tiny"
-        className="w-7 h-7"
+        className={cn('w-7 h-7', className)}
         icon={<Edit size={14} />}
         tooltip={tooltip}
       >
@@ -65,18 +78,26 @@ export const EditQueryButton = ({ id, sql, title }: EditQueryButtonProps) => {
 
   return !isInSQLEditor || isInNewSnippet ? (
     <ButtonTooltip
-      type="text"
+      type={type}
       size="tiny"
-      className="w-7 h-7"
+      className={cn('w-7 h-7', className)}
       icon={<Edit size={14} />}
       onClick={() => {
-        handleEditInSQLEditor()
+        if (isInlineEditorEnabled) {
+          setEditorPanel({
+            open: true,
+            initialValue: sql,
+          })
+        } else {
+          handleEditInSQLEditor()
+        }
         sendEvent({
-          action: TelemetryActions.ASSISTANT_EDIT_IN_SQL_EDITOR_CLICKED,
+          action: 'assistant_edit_in_sql_editor_clicked',
           properties: {
             isInSQLEditor,
             isInNewSnippet,
           },
+          groups: { project: ref ?? 'Unknown', organization: org?.slug ?? 'Unknown' },
         })
       }}
       tooltip={tooltip}
@@ -85,10 +106,10 @@ export const EditQueryButton = ({ id, sql, title }: EditQueryButtonProps) => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <ButtonTooltip
-          type="text"
+          type={type}
           size="tiny"
           disabled={!sql}
-          className="w-7 h-7"
+          className={cn('w-7 h-7', className)}
           icon={<Edit size={14} />}
           tooltip={!!sql ? tooltip : { content: { side: 'bottom', text: undefined } }}
         />
