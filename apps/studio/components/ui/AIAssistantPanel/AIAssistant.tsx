@@ -25,7 +25,6 @@ import { useSelectedOrganization } from 'hooks/misc/useSelectedOrganization'
 import { useSelectedProject } from 'hooks/misc/useSelectedProject'
 import { useFlag } from 'hooks/ui/useFlag'
 import { BASE_PATH, IS_PLATFORM, OPT_IN_TAGS } from 'lib/constants'
-import { TelemetryActions } from 'lib/constants/telemetry'
 import uuidv4 from 'lib/uuid'
 import { useAppStateSnapshot } from 'state/app-state'
 import { useSqlEditorV2StateSnapshot } from 'state/sql-editor-v2'
@@ -96,7 +95,7 @@ export const AIAssistant = ({
   const [lastSentMessage, setLastSentMessage] = useState<MessageType>()
   const [isConfirmOptInModalOpen, setIsConfirmOptInModalOpen] = useState(false)
 
-  const { data: check } = useCheckOpenAIKeyQuery()
+  const { data: check, isSuccess } = useCheckOpenAIKeyQuery()
   const isApiKeySet = IS_PLATFORM || !!check?.hasKey
 
   const isInSQLEditor = router.pathname.includes('/sql/[id]')
@@ -106,15 +105,20 @@ export const AIAssistant = ({
   const { data: subscription } = useOrgSubscriptionQuery({ orgSlug: selectedOrganization?.slug })
   const hasHipaaAddon = subscriptionHasHipaaAddon(subscription)
 
-  const { data: tables, isLoading: isLoadingTables } = useTablesQuery({
-    projectRef: project?.ref,
-    connectionString: project?.connectionString,
-    schema: 'public',
-  })
+  const { data: tables, isLoading: isLoadingTables } = useTablesQuery(
+    {
+      projectRef: project?.ref,
+      connectionString: project?.connectionString,
+      schema: 'public',
+    },
+    { enabled: isApiKeySet }
+  )
 
   const currentTable = tables?.find((t) => t.id.toString() === entityId)
   const currentSchema = searchParams?.get('schema') ?? 'public'
 
+  const { ref } = useParams()
+  const org = useSelectedOrganization()
   const { mutate: sendEvent } = useSendEventMutation()
 
   const {
@@ -135,6 +139,10 @@ export const AIAssistant = ({
       table: currentTable?.name,
     },
     onFinish: (message) => saveLatestMessage(message),
+    onError: (error) => {
+      const errorMessage = JSON.parse(error.message).message
+      toast.error(errorMessage)
+    },
   })
 
   const canUpdateOrganization = useCheckPermissions(PermissionAction.UPDATE, 'organizations')
@@ -177,11 +185,13 @@ export const AIAssistant = ({
 
     if (content.includes('Help me to debug')) {
       sendEvent({
-        action: TelemetryActions.ASSISTANT_DEBUG_SUBMITTED,
+        action: 'assistant_debug_submitted',
+        groups: { project: ref ?? 'Unknown', organization: org?.slug ?? 'Unknown' },
       })
     } else {
       sendEvent({
-        action: TelemetryActions.ASSISTANT_PROMPT_SUBMITTED,
+        action: 'assistant_prompt_submitted',
+        groups: { project: ref ?? 'Unknown', organization: org?.slug ?? 'Unknown' },
       })
     }
   }
@@ -366,14 +376,14 @@ export const AIAssistant = ({
                 ))}
               </div>
             </div>
-          ) : isLoadingTables ? (
+          ) : isLoadingTables && isApiKeySet ? (
             <div className="w-full h-full flex-1 flex flex-col justify-end items-start p-5">
               {/* [Joshen] We could try play around with a custom loader for the assistant here */}
               <GenericSkeletonLoader className="w-4/5" />
             </div>
           ) : (tables ?? [])?.length > 0 ? (
             <AIOnboarding setMessages={setMessages} onSendMessage={sendMessageToAssistant} />
-          ) : (
+          ) : isApiKeySet ? (
             <div className="w-full flex flex-col justify-end flex-1 h-full p-5">
               <h2 className="text-base mb-2">Welcome to Supabase!</h2>
               <p className="text-sm text-foreground-lighter mb-6">
@@ -424,7 +434,7 @@ export const AIAssistant = ({
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
         </div>
 
         <AnimatePresence>
@@ -491,7 +501,7 @@ export const AIAssistant = ({
             />
           )}
 
-          {!isApiKeySet && (
+          {isSuccess && !isApiKeySet && (
             <Admonition
               type="default"
               title="OpenAI API key not set"
